@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cooler彈簧螺絲設計計算</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+        :root {
+            --panel-bg: #1a1c1e;
+            --accent-orange: #f59e0b;
+            --metal-gray: #334155;
+            --terminal-green: #22c55e;
+            --dark-blue: #0f172a;
+        }
+
+        body {
+            background-color: var(--dark-blue);
+            color: #cbd5e1;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+
+        .industrial-font {
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+        .panel-border {
+            border: 2px solid var(--metal-gray);
+            background: var(--panel-bg);
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.5);
+            position: relative;
+        }
+
+        .panel-border::before {
+            content: "";
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            right: 5px;
+            bottom: 5px;
+            border: 1px solid rgba(255,255,255,0.05);
+            pointer-events: none;
+        }
+
+        .screw-container {
+            perspective: 1000px;
+            background: radial-gradient(circle, #334155 0%, #0f172a 100%);
+            border-radius: 8px;
+        }
+
+        .screw-model {
+            position: relative;
+            width: 80px;
+            height: 220px;
+            margin: 0 auto;
+            transform-style: preserve-3d;
+        }
+
+        .screw-head {
+            width: 50px;
+            height: 15px;
+            background: linear-gradient(90deg, #475569, #94a3b8, #475569);
+            border: 1px solid #1e293b;
+            margin: 0 auto;
+        }
+
+        .spring {
+            width: 35px;
+            height: 90px;
+            margin: 2px auto;
+            background: repeating-linear-gradient(
+                transparent,
+                transparent 8px,
+                #f59e0b 8px,
+                #f59e0b 12px
+            );
+            border: 2px solid #92400e;
+            transition: height 0.2s ease;
+        }
+
+        .shaft {
+            width: 12px;
+            height: 70px;
+            background: #64748b;
+            margin: -5px auto;
+        }
+
+        .thread {
+            width: 12px;
+            height: 25px;
+            background: repeating-linear-gradient(
+                45deg,
+                #334155,
+                #334155 2px,
+                #1e293b 2px,
+                #1e293b 4px
+            );
+            margin: 0 auto;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            background: #334155;
+            height: 6px;
+            border-radius: 4px;
+            width: 100%;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 18px;
+            width: 8px;
+            background: var(--accent-orange);
+            cursor: pointer;
+            border-radius: 1px;
+            box-shadow: 0 0 8px var(--accent-orange);
+        }
+
+        select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23f59e0b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.5rem center;
+            background-size: 1rem;
+        }
+
+        .hazard-stripe {
+            background: repeating-linear-gradient(
+                -45deg,
+                #f59e0b,
+                #f59e0b 10px,
+                #000 10px,
+                #000 20px
+            );
+            height: 4px;
+        }
+
+        .param-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            color: #94a3b8;
+            margin-bottom: 2px;
+        }
+
+        .param-value {
+            font-family: 'Share Tech Mono', monospace;
+            color: var(--accent-orange);
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-7xl mx-auto">
+        <!-- 標題裝飾區 -->
+        <header class="mb-8 relative">
+            <div class="hazard-stripe mb-4"></div>
+            <div class="flex justify-between items-end">
+                <div>
+                    <h1 class="text-3xl font-black uppercase tracking-tighter text-white industrial-font">Cooler彈簧螺絲設計計算 V3.3</h1>
+                </div>
+                <div class="text-right hidden md:block">
+                    <span class="text-xs text-slate-500 industrial-font uppercase">Pressure Monitoring</span>
+                    <div class="text-emerald-500 industrial-font animate-pulse text-sm">● ANALYZING</div>
+                </div>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
+            <!-- 第一欄：結構掃描 -->
+            <div class="panel-border p-6 rounded-lg lg:col-span-3">
+                <div class="text-xs text-amber-500 mb-4 industrial-font uppercase border-b border-amber-500/30 pb-1 italic">Structural Scan</div>
+                <div class="screw-container py-10 mb-6">
+                    <div class="screw-model">
+                        <div class="screw-head"></div>
+                        <div class="spring" id="visualSpring"></div>
+                        <div class="shaft"></div>
+                        <div class="thread"></div>
+                    </div>
+                </div>
+                
+                <div class="space-y-4">
+                    <div class="bg-black/40 p-3 rounded border border-slate-700">
+                        <div class="param-label">Spring Rate (k)</div>
+                        <div class="text-xl text-white industrial-font"><span id="kValCalc">1.50</span> <span class="text-xs text-slate-500">N/mm</span></div>
+                    </div>
+                    <div class="bg-black/40 p-3 rounded border border-slate-700">
+                        <div class="param-label">Spring Mass (Unit)</div>
+                        <div class="text-xl text-amber-500 industrial-font"><span id="weightCalc">0.85</span> <span class="text-xs text-slate-500">g</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 第二欄：輸入參數 -->
+            <div class="panel-border p-6 rounded-lg lg:col-span-6 border-amber-600/30">
+                <div class="text-xs text-amber-500 mb-6 industrial-font uppercase border-b border-amber-500/30 pb-1 italic">System Configuration (Metric)</div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                    <div class="md:col-span-2 bg-slate-800/50 p-4 rounded border border-slate-700">
+                        <label class="param-label text-amber-500 font-bold">金屬材料選擇 (Metal Material)</label>
+                        <select id="materialSelector" class="bg-slate-900 text-sm text-white border border-slate-600 w-full p-2 mt-2 rounded industrial-font focus:outline-none focus:border-amber-500">
+                            <option value="79300" data-density="7.85">琴鋼絲 Music Wire (ASTM A228)</option>
+                            <option value="77200" data-density="8.03">不鏽鋼 Stainless 302/304</option>
+                            <option value="42000" data-density="8.80">磷青銅 Phosphor Bronze</option>
+                            <option value="79300" data-density="7.86">油回火碳鋼 Oil Tempered MB</option>
+                            <option value="44000" data-density="4.43">鈦合金 Titanium Grade 5</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label class="param-label">線徑 Wire Dia (d)</label>
+                            <span class="param-value"><span id="dValText">0.80</span> mm</span>
+                        </div>
+                        <input type="range" id="dInput" min="0.2" max="2.5" step="0.05" value="0.80">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label class="param-label">平均圈徑 Mean Dia (D)</label>
+                            <span class="param-value"><span id="DValText">6.50</span> mm</span>
+                        </div>
+                        <input type="range" id="DInput" min="2.0" max="15.0" step="0.1" value="6.50">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label class="param-label">有效圈數 Active Coils (n)</label>
+                            <span class="param-value"><span id="nValText">8</span></span>
+                        </div>
+                        <input type="range" id="nInput" min="3" max="25" step="1" value="8">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label class="param-label">壓縮量 Compression (&Delta;x)</label>
+                            <span class="param-value text-white"><span id="xValText">4.0</span> mm</span>
+                        </div>
+                        <input type="range" id="xInput" min="0" max="15.0" step="0.2" value="4.0">
+                    </div>
+
+                    <div class="md:col-span-2 bg-black/40 p-4 rounded border border-slate-700 mt-2">
+                        <label class="param-label text-amber-500 font-bold block mb-3">CPU IHS 尺寸設定 (Surface Area)</label>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="param-label">IHS 長度 (mm)</label>
+                                <input type="number" id="ihsWidth" value="35" class="bg-slate-900 text-white industrial-font text-sm w-full p-2 border border-slate-600 rounded">
+                            </div>
+                            <div>
+                                <label class="param-label">IHS 寬度 (mm)</label>
+                                <input type="number" id="ihsHeight" value="35" class="bg-slate-900 text-white industrial-font text-sm w-full p-2 border border-slate-600 rounded">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="md:col-span-2 grid grid-cols-2 gap-4 mt-2">
+                        <div class="bg-black/20 p-2 rounded border border-slate-800">
+                            <label class="param-label block">剪切模量 G (MPa)</label>
+                            <input type="number" id="GInput" value="79300" class="bg-transparent text-amber-500 industrial-font text-sm w-full outline-none">
+                        </div>
+                        <div class="bg-black/20 p-2 rounded border border-slate-800">
+                            <label class="param-label block">密度 Density (g/cm³)</label>
+                            <input type="number" id="densityInput" value="7.85" step="0.01" class="bg-transparent text-amber-500 industrial-font text-sm w-full outline-none">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 第三欄：結果輸出 -->
+            <div class="panel-border p-6 rounded-lg lg:col-span-3">
+                <div class="text-xs text-amber-500 mb-6 industrial-font uppercase border-b border-amber-500/30 pb-1 italic">Output Metrics</div>
+                
+                <div class="bg-black/50 p-4 border border-slate-700 mb-6 relative overflow-hidden">
+                    <div class="text-[10px] text-slate-500 uppercase industrial-font mb-2">Force per Bolt</div>
+                    <div class="text-3xl font-black text-white industrial-font mb-4"><span id="forceResult">13.50</span> <span class="text-sm text-slate-500">Lbf</span></div>
+                    
+                    <div class="pt-4 border-t border-slate-800 space-y-4">
+                        <div>
+                            <div class="text-[10px] text-slate-500 uppercase industrial-font mb-1">Total System Load (4x)</div>
+                            <div id="statusBadge" class="text-2xl industrial-font text-emerald-400">
+                                <span id="totalForce">54.0</span> Lbf
+                            </div>
+                        </div>
+                        
+                        <div class="bg-amber-500/10 p-2 rounded border border-amber-500/20">
+                            <div class="text-[10px] text-amber-600 uppercase industrial-font mb-1">IHS Surface Pressure</div>
+                            <div class="text-xl industrial-font text-amber-500">
+                                <span id="psiResult">28.4</span> <span class="text-xs">PSI</span>
+                            </div>
+                            <div class="text-[8px] text-slate-500 mt-1 italic uppercase font-sans tracking-tight">
+                                Area: <span id="areaDisplay">1.90</span> in²
+                            </div>
+                        </div>
+
+                        <div id="alertMsg" class="text-[10px] w-full text-center uppercase industrial-font px-2 py-1 bg-emerald-900/30 rounded inline-block text-emerald-400">Nominal Range</div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900/50 p-3 rounded border border-slate-800">
+                    <div class="text-[9px] text-slate-500 uppercase industrial-font mb-2">Internal Stress</div>
+                    <div class="flex justify-between items-end">
+                        <span class="text-[10px] text-slate-400">Corrected Stress</span>
+                        <span class="text-sm text-white industrial-font"><span id="stressCalc">310</span> MPa</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="mt-8 text-center industrial-font text-[10px] text-slate-600 tracking-widest uppercase">
+            Created by Randy Chen @2026
+        </footer>
+    </div>
+
+    <script>
+        // --- 阻擋右鍵選單邏輯 ---
+        document.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+        }, false);
+
+        // --- 原有計算與介面邏輯 ---
+        const dInput = document.getElementById('dInput');
+        const DInput = document.getElementById('DInput');
+        const nInput = document.getElementById('nInput');
+        const GInput = document.getElementById('GInput');
+        const xInput = document.getElementById('xInput');
+        const materialSelector = document.getElementById('materialSelector');
+        const densityInput = document.getElementById('densityInput');
+        const ihsWidth = document.getElementById('ihsWidth');
+        const ihsHeight = document.getElementById('ihsHeight');
+
+        const dValText = document.getElementById('dValText');
+        const DValText = document.getElementById('DValText');
+        const nValText = document.getElementById('nValText');
+        const xValText = document.getElementById('xValText');
+        const kValCalc = document.getElementById('kValCalc');
+        const weightCalc = document.getElementById('weightCalc');
+        const stressCalc = document.getElementById('stressCalc');
+        const forceResult = document.getElementById('forceResult');
+        const totalForceText = document.getElementById('totalForce');
+        const psiResult = document.getElementById('psiResult');
+        const areaDisplay = document.getElementById('areaDisplay');
+        const visualSpring = document.getElementById('visualSpring');
+        const statusBadge = document.getElementById('statusBadge');
+        const alertMsg = document.getElementById('alertMsg');
+
+        materialSelector.addEventListener('change', () => {
+            const selected = materialSelector.options[materialSelector.selectedIndex];
+            GInput.value = selected.value;
+            densityInput.value = selected.getAttribute('data-density');
+            updateCalculation();
+        });
+
+        function updateCalculation() {
+            const d = parseFloat(dInput.value); 
+            const D = parseFloat(DInput.value); 
+            const n = parseFloat(nInput.value); 
+            const G = parseFloat(GInput.value); 
+            const x = parseFloat(xInput.value); 
+            const density = parseFloat(densityInput.value); 
+            const iw = parseFloat(ihsWidth.value) || 1;
+            const ih = parseFloat(ihsHeight.value) || 1;
+
+            const k = (G * Math.pow(d, 4)) / (8 * Math.pow(D, 3) * n);
+            const force_n = k * x; 
+            const force_lbf = force_n / 4.44822;
+            const total_lbf = force_lbf * 4;
+
+            const area_mm2 = iw * ih;
+            const area_in2 = area_mm2 / 645.16;
+            const psi = total_lbf / area_in2;
+
+            const wireLength = Math.PI * D * n;
+            const volume_mm3 = (Math.PI * Math.pow(d, 2) / 4) * wireLength;
+            const weight = volume_mm3 * (density / 1000);
+
+            const C = D / d; 
+            const Kw = (4 * C - 1) / (4 * C - 4) + (0.615 / C);
+            const stress = Kw * (8 * force_n * D) / (Math.PI * Math.pow(d, 3));
+
+            dValText.innerText = d.toFixed(2);
+            DValText.innerText = D.toFixed(2);
+            nValText.innerText = n;
+            xValText.innerText = x.toFixed(1);
+            kValCalc.innerText = k.toFixed(2);
+            weightCalc.innerText = weight.toFixed(2);
+            stressCalc.innerText = Math.round(stress);
+            forceResult.innerText = force_lbf.toFixed(2);
+            totalForceText.innerText = total_lbf.toFixed(1);
+            psiResult.innerText = psi.toFixed(1);
+            areaDisplay.innerText = area_in2.toFixed(2);
+
+            const visualHeight = 90 - (x * 4); 
+            visualSpring.style.height = Math.max(20, visualHeight) + 'px';
+            visualSpring.style.borderWidth = (d * 5).toFixed(0) + 'px';
+
+            if (total_lbf < 35) {
+                statusBadge.className = "text-2xl industrial-font text-amber-500";
+                alertMsg.innerText = "Low Contact Load";
+                alertMsg.className = "text-[10px] w-full text-center uppercase mt-2 industrial-font px-2 py-1 bg-amber-900/30 rounded inline-block text-amber-500";
+            } else if (total_lbf > 110 || psi > 60) {
+                statusBadge.className = "text-2xl industrial-font text-red-500 animate-pulse";
+                alertMsg.innerText = psi > 60 ? "PSI LIMIT EXCEEDED" : "SOCKET OVERLOAD";
+                alertMsg.className = "text-[10px] w-full text-center uppercase mt-2 industrial-font px-2 py-1 bg-red-900/30 rounded inline-block text-red-500";
+            } else {
+                statusBadge.className = "text-2xl industrial-font text-emerald-400";
+                alertMsg.innerText = "Nominal Range";
+                alertMsg.className = "text-[10px] w-full text-center uppercase mt-2 industrial-font px-2 py-1 bg-emerald-900/30 rounded inline-block text-emerald-400";
+            }
+        }
+
+        [dInput, DInput, nInput, GInput, xInput, densityInput, ihsWidth, ihsHeight].forEach(el => {
+            el.addEventListener('input', updateCalculation);
+        });
+
+        updateCalculation();
+    </script>
+</body>
+</html>
